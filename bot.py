@@ -40,7 +40,50 @@ def http(url, data=None):
             time.sleep(5)
 
 
+CHANNEL = os.environ.get("CHANNEL", "Zaporizhzhyaoblenergo_news")
+SOURCE = os.environ.get("SOURCE", "channel")  # channel | site
+MONTHS = {m: i + 1 for i, m in enumerate(
+    "січня лютого березня квітня травня червня липня серпня вересня жовтня листопада грудня".split())}
+
+
+def _post_date(text):
+    m = re.search(r"(\d{1,2})\.(\d{2})\.\d{4}", text)
+    if m:
+        return f"{int(m.group(1)):02d}.{m.group(2)}"
+    m = re.search(r"(\d{1,2})\s+(" + "|".join(MONTHS) + r")", text, flags=re.I)
+    if m:
+        return f"{int(m.group(1)):02d}.{MONTHS[m.group(2).lower()]:02d}"
+    return None
+
+
+def fetch_channel():
+    """Читает публичную веб-версию канала; для каждой даты берёт самый свежий пост с графиком."""
+    page = http(f"https://t.me/s/{CHANNEL}")
+    result = {}
+    for chunk in page.split('data-post="')[1:]:
+        m = re.search(r'class="tgme_widget_message_text[^>]*>(.*?)</div>', chunk, flags=re.S)
+        if not m:
+            continue
+        text = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", m.group(1))))
+        if not re.search(r"Черга\s+\d\.\d", text):
+            continue
+        date = _post_date(text)
+        if not date:
+            continue
+        q = re.search(r"Черга\s+" + re.escape(QUEUE) + r"(?!\d)(.*?)(?=Черга\s+\d|\Z)", text, flags=re.S)
+        if not q:
+            result[date] = "отключений нет"
+            continue
+        spans = re.findall(r"(\d{1,2}:\d{2})\s*(?:до|[–-])\s*(\d{1,2}:\d{2})", q.group(1))
+        result[date] = ", ".join(f"{a} – {b}" for a, b in spans) if spans else "отключений нет"
+    return result
+
+
 def fetch_schedules():
+    return fetch_site() if SOURCE == "site" else fetch_channel()
+
+
+def fetch_site():
     """Возвращает {'12 листопада': '17:30 – 22:30'} — самая свежая публикация на каждую дату."""
     raw = http(URL)
     raw = re.sub(r"<script.*?</script>|<style.*?</style>", " ", raw, flags=re.S)
