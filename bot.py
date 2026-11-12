@@ -29,8 +29,15 @@ CHAT = os.environ.get("TG_CHAT_ID", "")
 
 def http(url, data=None):
     req = urllib.request.Request(url, data=data, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", "replace")
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return r.read().decode("utf-8", "replace")
+        except Exception as e:
+            if attempt == 3:
+                raise
+            print(f"попытка {attempt + 1} не удалась: {e}")
+            time.sleep(5)
 
 
 def fetch_schedules():
