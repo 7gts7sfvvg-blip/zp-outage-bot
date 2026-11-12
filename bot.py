@@ -98,6 +98,9 @@ def check():
 
 
 def main():
+    if not re.fullmatch(r"\d+:[A-Za-z0-9_-]+", TOKEN):
+        sys.exit("TG_TOKEN выглядит неправильно: нужен настоящий токен вида 123456789:AA... "
+                 "(не текст-заглушка из инструкции)")
     if "--chat-id" in sys.argv:
         data = json.loads(http(f"https://api.telegram.org/bot{TOKEN}/getUpdates"))
         ids = {u["message"]["chat"]["id"] for u in data["result"] if "message" in u}
