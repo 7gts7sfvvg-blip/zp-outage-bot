@@ -18,6 +18,8 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 QUEUE = os.environ.get("QUEUE", "4.2")
 URL = "https://www.zoe.com.ua/outage/"
@@ -127,6 +129,9 @@ def save_state(s):
 
 def check():
     new = fetch_schedules()
+    today = datetime.now(ZoneInfo("Europe/Kyiv"))
+    keys = {today.strftime("%d.%m"), f"{today.day} {list(MONTHS)[today.month - 1]}"}
+    new = {d: h for d, h in new.items() if d in keys}  # только сегодняшний день
     if not new:
         print("график не найден на странице (формат мог измениться)")
         return
