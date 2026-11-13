@@ -42,7 +42,7 @@ def http(url, data=None):
             time.sleep(5)
 
 
-CHANNEL = os.environ.get("CHANNEL", "Zaporizhzhyaoblenergo_news")
+CHANNEL = os.environ.get("CHANNEL", "Zaporizhzhyaoblenergo_news,ProZaporizhzhia")  # через запятую
 SOURCE = os.environ.get("SOURCE", "channel")  # channel | site
 MONTHS = {m: i + 1 for i, m in enumerate(
     "січня лютого березня квітня травня червня липня серпня вересня жовтня листопада грудня".split())}
@@ -58,27 +58,57 @@ def _post_date(text):
     return None
 
 
-def fetch_channel():
-    """Читает публичную веб-версию канала; для каждой даты берёт самый свежий пост с графиком."""
-    page = http(f"https://t.me/s/{CHANNEL}")
-    result = {}
+SPAN = r"(\d{1,2}:\d{2})\s*(?:до|[–-])\s*(\d{1,2}:\d{2})"
+
+
+def _channel_posts(channel):
+    """Посты публичного канала: [(время поста UTC, текст)]."""
+    page = http(f"https://t.me/s/{channel}")
+    posts = []
     for chunk in page.split('data-post="')[1:]:
         m = re.search(r'class="tgme_widget_message_text[^>]*>(.*?)</div>', chunk, flags=re.S)
-        if not m:
-            continue
-        text = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", m.group(1))))
-        if not re.search(r"Черга\s+\d\.\d", text):
-            continue
+        t = re.search(r'datetime="([^"]+)"', chunk)
+        if m and t:
+            text = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", m.group(1))))
+            posts.append((datetime.fromisoformat(t.group(1)), text))
+    return posts
+
+
+def _parse_post(posted, text):
+    """(дата 'дд.мм', часы) или None. Понимает форматы «Черга 4.2 з .. до ..» и «4.2: 16:00 – 21:00»."""
+    kyiv = posted.astimezone(ZoneInfo("Europe/Kyiv"))
+    if re.search(r"Черга\s+\d\.\d", text):
         date = _post_date(text)
-        if not date:
-            continue
         q = re.search(r"Черга\s+" + re.escape(QUEUE) + r"(?!\d)(.*?)(?=Черга\s+\d|\Z)", text, flags=re.S)
-        if not q:
-            result[date] = "отключений нет"
+        spans = re.findall(SPAN, q.group(1)) if q else []
+    elif re.search(r"(?<![\d.])\d\.\d:\s*\d{1,2}:\d{2}", text):
+        low = text.lower()
+        date = _post_date(text) or (
+            (kyiv + timedelta(days=1)).strftime("%d.%m") if "завтра" in low
+            else kyiv.strftime("%d.%m") if "сьогодні" in low else None)
+        q = re.search(r"(?<![\d.])" + re.escape(QUEUE) + r":\s*((?:" + SPAN + r"(?:\s*,\s*)?)+)", text)
+        spans = re.findall(SPAN, q.group(1)) if q else []
+    else:
+        return None
+    if not date:
+        return None
+    return date, ", ".join(f"{a} – {b}" for a, b in spans) if spans else "отключений нет"
+
+
+def fetch_channel():
+    """Читает публичные каналы; для каждой даты берёт самый свежий пост среди всех каналов."""
+    latest = {}  # дата -> (время поста, часы)
+    for ch in [c.strip() for c in CHANNEL.split(",") if c.strip()]:
+        try:
+            posts = _channel_posts(ch)
+        except Exception as e:
+            print(f"канал {ch} недоступен: {e}")
             continue
-        spans = re.findall(r"(\d{1,2}:\d{2})\s*(?:до|[–-])\s*(\d{1,2}:\d{2})", q.group(1))
-        result[date] = ", ".join(f"{a} – {b}" for a, b in spans) if spans else "отключений нет"
-    return result
+        for posted, text in posts:
+            r = _parse_post(posted, text)
+            if r and (r[0] not in latest or posted > latest[r[0]][0]):
+                latest[r[0]] = (posted, r[1])
+    return {d: h for d, (_, h) in latest.items()}
 
 
 def fetch_schedules():
