@@ -30,5 +30,5 @@ curl -s "https://api.telegram.org/bot$TG_TOKEN/setWebhook" \
 echo
 curl -s "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
   --data-urlencode "chat_id=$TG_CHAT_ID" \
-  --data-urlencode "text=Бот обновлён: теперь им могут пользоваться и другие. Нажмите /start и выберите очередь." \
+  --data-urlencode "text=Бот обновлён: теперь им могут пользоваться и другие. Нажмите /start и выберите очередь." >/dev/null
 echo "Готово. Откройте бота в Telegram."
