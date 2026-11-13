@@ -18,6 +18,8 @@ jobs:
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          SUBS_URL: https://zp-outage-buttons.vercel.app/api/subs
+          SUBS_SECRET: ${{ secrets.SUBS_SECRET }}
         run: python3 bot.py --once
       - name: Save state
         run: |
