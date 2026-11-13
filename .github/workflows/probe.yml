@@ -1,0 +1,7 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sL -m 30 -A "Mozilla/5.0" -o /dev/null -w "HTTP %{http_code} %{time_total}s\n" https://www.zoe.com.ua/outage/ || echo "FAILED exit=$?"
