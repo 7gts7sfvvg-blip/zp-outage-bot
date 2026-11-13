@@ -51,13 +51,19 @@ module.exports = async (req, res) => {
       const chat = cq.message && cq.message.chat && cq.message.chat.id;
       const m = /^q:(\d\.\d)$/.exec(cq.data || "");
       if (chat && m && QUEUES.includes(m[1])) {
-        const subs = await loadSubs();
-        if (Object.keys(subs).length < 5000) {
-          subs[chat] = { q: m[1] };
-          await saveSubs(subs);
-          await api("answerCallbackQuery", { callback_query_id: cq.id, text: `Очередь ${m[1]} сохранена` });
-          await schedule(chat, m[1], [0, 1], `✅ Очередь ${m[1]} сохранена. Напишу, когда график изменится.\n\n`);
-        }
+        // сразу гасим «часики» на кнопке, остальное делаем параллельно
+        await api("answerCallbackQuery", { callback_query_id: cq.id, text: `Очередь ${m[1]}` });
+        const save = (async () => {
+          const subs = await loadSubs();
+          if (Object.keys(subs).length < 5000) {
+            subs[chat] = { q: m[1] };
+            await saveSubs(subs);
+          }
+        })();
+        await Promise.all([
+          save,
+          schedule(chat, m[1], [0, 1], `✅ Очередь ${m[1]} сохранена. Напишу, когда график изменится.\n\n`),
+        ]);
       } else {
         await api("answerCallbackQuery", { callback_query_id: cq.id });
       }
