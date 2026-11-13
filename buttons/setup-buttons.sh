@@ -26,10 +26,9 @@ fi
 
 curl -s "https://api.telegram.org/bot$TG_TOKEN/setWebhook" \
   --data-urlencode "url=$URL" --data-urlencode "secret_token=$SECRET" \
-  --data-urlencode 'allowed_updates=["message"]'
+  --data-urlencode 'allowed_updates=["message","callback_query"]'
 echo
 curl -s "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
   --data-urlencode "chat_id=$TG_CHAT_ID" \
-  --data-urlencode "text=Кнопки подключены. Нажмите «Сегодня», «Завтра» или «Обновить»." \
-  --data-urlencode 'reply_markup={"keyboard":[[{"text":"📅 Сегодня"},{"text":"📅 Завтра"}],[{"text":"🔄 Обновить"}]],"resize_keyboard":true,"is_persistent":true}' >/dev/null
+  --data-urlencode "text=Бот обновлён: теперь им могут пользоваться и другие. Нажмите /start и выберите очередь." \
 echo "Готово. Откройте бота в Telegram."
