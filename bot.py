@@ -173,7 +173,8 @@ def subscribers():
         return fallback
     try:
         data = json.loads(http(SUBS_URL, headers={"x-subs-secret": SUBS_SECRET}))
-        subs = [(str(c), v["q"]) for c, v in data.items() if v.get("q") in QUEUES and not v.get("mute")]
+        subs = [(str(c), q) for c, v in data.items() if not v.get("mute")
+                for q in (v.get("qs") or [v.get("q")]) if q in QUEUES]
         return subs
     except Exception as e:
         print("не удалось получить подписчиков:", e)

@@ -1,21 +1,18 @@
-// Подписчики {chat_id: {q: "4.2"}} в приватном Vercel Blob.
+// Данные бота в приватном Vercel Blob: подписчики {chat_id: {qs: ["4.2"], mute?: true}} и отметки напоминаний.
 async function blob() {
   return import("@vercel/blob");
 }
 
-async function loadSubs() {
+async function loadJson(name, fallback) {
   const { get } = await blob();
-  const r = await get("subs.json", { access: "private", useCache: false });
-  if (!r || r.statusCode !== 200) {
-    // файла ещё нет: первым подписчиком считаем владельца (очередь 4.2)
-    return process.env.TG_CHAT_ID ? { [process.env.TG_CHAT_ID]: { q: "4.2" } } : {};
-  }
+  const r = await get(name, { access: "private", useCache: false });
+  if (!r || r.statusCode !== 200) return fallback;
   return JSON.parse(await new Response(r.stream).text());
 }
 
-async function saveSubs(subs) {
+async function saveJson(name, data) {
   const { put } = await blob();
-  await put("subs.json", JSON.stringify(subs), {
+  await put(name, JSON.stringify(data), {
     access: "private",
     allowOverwrite: true,
     addRandomSuffix: false,
@@ -23,4 +20,17 @@ async function saveSubs(subs) {
   });
 }
 
-module.exports = { loadSubs, saveSubs };
+async function loadSubs() {
+  // файла ещё нет: первым подписчиком считаем владельца (очередь 4.2)
+  const seed = process.env.TG_CHAT_ID ? { [process.env.TG_CHAT_ID]: { qs: ["4.2"] } } : {};
+  const subs = await loadJson("subs.json", seed);
+  for (const v of Object.values(subs)) {  // старый формат {q: "4.2"} -> {qs: ["4.2"]}
+    if (!v.qs) v.qs = v.q ? [v.q] : [];
+    delete v.q;
+  }
+  return subs;
+}
+
+const saveSubs = (subs) => saveJson("subs.json", subs);
+
+module.exports = { loadSubs, saveSubs, loadJson, saveJson };
