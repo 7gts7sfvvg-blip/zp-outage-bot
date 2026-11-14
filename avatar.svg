@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2a6b"/>
+      <stop offset="1" stop-color="#0b1233"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffd33d" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffd33d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff2a8"/>
+      <stop offset="0.5" stop-color="#ffd33d"/>
+      <stop offset="1" stop-color="#ff9f1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="640" fill="url(#bg)"/>
+  <circle cx="320" cy="320" r="270" fill="url(#glow)"/>
+  <circle cx="320" cy="320" r="236" fill="none" stroke="#3d5bd9" stroke-opacity="0.55" stroke-width="10"/>
+  <circle cx="320" cy="320" r="236" fill="none" stroke="#7aa2ff" stroke-opacity="0.9" stroke-width="10" stroke-dasharray="120 80" stroke-linecap="round"/>
+  <polygon points="360,96 214,352 304,352 268,544 428,276 334,276" fill="url(#bolt)" stroke="#fff6c9" stroke-width="6" stroke-linejoin="round"/>
+  <g fill="#7aa2ff" fill-opacity="0.9">
+    <circle cx="140" cy="150" r="7"/><circle cx="510" cy="130" r="5"/>
+    <circle cx="520" cy="500" r="7"/><circle cx="120" cy="480" r="5"/>
+  </g>
+</svg>

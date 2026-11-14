@@ -15,15 +15,24 @@ async function tgSend(chat, text) {
   return r.ok;
 }
 
+// Кэш между вызовами «тёплой» функции, чтобы не читать/писать Blob каждую минуту (у Hobby мало операций).
+let subsCache = { at: 0, data: null };
+let sentCache = null;
+
 module.exports = async (req, res) => {
   const given = req.headers["x-subs-secret"] || (req.query && req.query.s);
   if (!process.env.REMIND_SECRET || given !== process.env.REMIND_SECRET) return res.status(404).send("not found");
   try {
-    const [subs, data, sent] = await Promise.all([loadSubs(), schedules(), loadJson("reminded.json", {})]);
-    const nm = nowMin();
     const now = Date.now();
+    if (!subsCache.data || now - subsCache.at > 10 * 60 * 1000) subsCache = { at: now, data: await loadSubs() };
+    if (!sentCache) sentCache = await loadJson("reminded.json", {});
+    const subs = subsCache.data;
+    const sent = sentCache;
+    const data = await schedules();
+    const nm = nowMin();
     let count = 0;
-    for (const k of Object.keys(sent)) if (now - sent[k] > 36 * 3600 * 1000) delete sent[k];
+    let dirty = false;
+    for (const k of Object.keys(sent)) if (now - sent[k] > 36 * 3600 * 1000) { delete sent[k]; dirty = true; }
 
     for (const [chat, v] of Object.entries(subs)) {
       if (v.mute) continue;
@@ -43,6 +52,7 @@ module.exports = async (req, res) => {
               if (!sent[key]) {
                 const ok = await tgSend(chat, `⏰ Очередь ${q}: через ${dur(toStart)} отключение света (${hhmm(s[0])} – ${hhmm(s[1])})`);
                 sent[key] = now;
+                dirty = true;
                 if (ok) count++;
               }
             }
@@ -54,6 +64,7 @@ module.exports = async (req, res) => {
               if (!sent[key]) {
                 const ok = await tgSend(chat, `💡 Очередь ${q}: по графику свет должен включиться (${hhmm(s[1])}). Иногда это занимает до 30 минут.`);
                 sent[key] = now;
+                dirty = true;
                 if (ok) count++;
               }
             }
@@ -61,7 +72,7 @@ module.exports = async (req, res) => {
         }
       }
     }
-    await saveJson("reminded.json", sent);
+    if (dirty) await saveJson("reminded.json", sent);
     res.status(200).json({ sent: count });
   } catch (e) {
     res.status(500).json({ error: String(e) });
