@@ -19,6 +19,43 @@ async function tgSend(chat, text) {
 let subsCache = { at: 0, data: null };
 let sentCache = null;
 
+// Уведомления об изменении графика (раньше это делал GitHub раз в час). Состояние хранится в Blob только при изменениях.
+let stateCache = null; // {дата: {очередь: часы}}
+
+async function notifyChanges(data, subs) {
+  if (stateCache === null) stateCache = await loadJson("state.json", false);
+  const cur = {};
+  for (const d of [dayKey(0), dayKey(1)]) {
+    if (!data[d]) continue;
+    cur[d] = {};
+    for (const [q, v] of Object.entries(data[d])) cur[d][q] = v.hours;
+  }
+  if (!Object.keys(cur).length) return 0;
+  let n = 0;
+  if (stateCache) {
+    for (const [d, qs] of Object.entries(cur)) {
+      for (const [q, hours] of Object.entries(qs)) {
+        const before = stateCache[d] && stateCache[d][q];
+        if (before === hours) continue;
+        let text = null;
+        if (!stateCache[d]) text = `💡 Очередь ${q}: новый график на ${d}\nОтключения: ${hours}`;
+        else if (before !== undefined) text = `⚠️ Очередь ${q}: график на ${d} изменён\nБыло: ${before}\nСтало: ${hours}`;
+        if (!text) continue;
+        for (const [chat, v] of Object.entries(subs)) {
+          if (!v.mute && v.qs.includes(q) && (await tgSend(chat, text))) n++;
+        }
+      }
+    }
+  }
+  const merged = {};
+  for (const d of Object.keys(cur)) merged[d] = { ...((stateCache && stateCache[d]) || {}), ...cur[d] };
+  if (JSON.stringify(merged) !== JSON.stringify(stateCache || null)) {
+    stateCache = merged;
+    await saveJson("state.json", merged);
+  }
+  return n;
+}
+
 module.exports = async (req, res) => {
   const given = req.headers["x-subs-secret"] || (req.query && req.query.s);
   if (!process.env.REMIND_SECRET || given !== process.env.REMIND_SECRET) return res.status(404).send("not found");
@@ -29,6 +66,7 @@ module.exports = async (req, res) => {
     const subs = subsCache.data;
     const sent = sentCache;
     const data = await schedules();
+    const changed = await notifyChanges(data, subs);
     const nm = nowMin();
     let count = 0;
     let dirty = false;
@@ -73,7 +111,7 @@ module.exports = async (req, res) => {
       }
     }
     if (dirty) await saveJson("reminded.json", sent);
-    res.status(200).json({ sent: count });
+    res.status(200).json({ sent: count, changed });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
