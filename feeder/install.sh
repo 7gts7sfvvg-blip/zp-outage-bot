@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ставит feeder как задачу launchd: раз в минуту читает сайт и публикует снимок графика.
+# Ставит feeder как задачу launchd: раз в 2 минуты читает сайт и публикует снимок графика.
 # Удалить: bash install.sh remove
 set -e
 LABEL=com.zp-outage.feeder
@@ -28,7 +28,7 @@ cat > "$PLIST" <<EOF
 <plist version="1.0"><dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array><string>$PY</string><string>$DIR/feeder.py</string></array>
-  <key>StartInterval</key><integer>60</integer>
+  <key>StartInterval</key><integer>120</integer>
   <key>RunAtLoad</key><true/>
   <key>EnvironmentVariables</key><dict><key>PATH</key><string>$(dirname "$GH_BIN"):/usr/bin:/bin</string></dict>
   <key>StandardOutPath</key><string>$HOME/.zp-outage-feeder.log</string>
@@ -38,4 +38,4 @@ EOF
 
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "Готово. Работает раз в минуту, пока Mac включён. Журнал: ~/.zp-outage-feeder.log"
+echo "Готово. Работает раз в 2 минуты, пока Mac включён. Журнал: ~/.zp-outage-feeder.log"
