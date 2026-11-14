@@ -120,9 +120,27 @@ def _post_day(posted, text):
     return None
 
 
+SNAPSHOT_URL = os.environ.get(
+    "SNAPSHOT_URL", "https://raw.githubusercontent.com/7gts7sfvvg-blip/zp-outage-bot/site-data/site.json")
+
+
+def snapshot_into(latest):
+    """Добавляет данные сайта, присланные устройством в Украине (feeder): побеждает более свежее по времени."""
+    try:
+        snap = json.loads(http(f"{SNAPSHOT_URL}?t={int(time.time() // 60)}"))
+        at = datetime.fromisoformat(snap["at"])
+    except Exception:
+        return
+    for day, qs in snap.get("data", {}).items():
+        for q, hours in qs.items():
+            if (day, q) not in latest or at > latest[(day, q)][0]:
+                latest[(day, q)] = (at, hours)
+
+
 def fetch_channels():
-    """{дата: {очередь: часы}} — для каждой пары (дата, очередь) самый свежий пост среди всех каналов."""
-    latest = {}  # (дата, очередь) -> (время поста, часы)
+    """{дата: {очередь: часы}} — для каждой пары (дата, очередь) самый свежий источник:
+    посты каналов или снимок сайта."""
+    latest = {}  # (дата, очередь) -> (время, часы)
     for ch in [c.strip() for c in CHANNEL.split(",") if c.strip()]:
         try:
             posts = _channel_posts(ch)
@@ -137,6 +155,7 @@ def fetch_channels():
             for q, hours in parsed.items():
                 if (day, q) not in latest or posted > latest[(day, q)][0]:
                     latest[(day, q)] = (posted, hours)
+    snapshot_into(latest)
     out = {}
     for (day, q), (_, hours) in latest.items():
         out.setdefault(day, {})[q] = hours

@@ -81,10 +81,28 @@ async function channelPosts(ch) {
   return posts;
 }
 
-// {дата: {очередь: {hours, at}}} — для каждой пары самый свежий пост среди всех каналов
+const SNAPSHOT_URL = process.env.SNAPSHOT_URL || "https://raw.githubusercontent.com/7gts7sfvvg-blip/zp-outage-bot/site-data/site.json";
+
+// Снимок сайта от устройства в Украине (feeder): {at, data: {дата: {очередь: часы}}}
+async function siteSnapshot() {
+  try {
+    const r = await fetch(`${SNAPSHOT_URL}?t=${Math.floor(Date.now() / 60000)}`, { signal: AbortSignal.timeout(3000) });
+    return r.ok ? await r.json() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// {дата: {очередь: {hours, at}}} — для каждой пары самый свежий источник: посты каналов или снимок сайта
 async function schedules() {
-  const lists = await Promise.all(CHANNELS.map((c) => channelPosts(c).catch(() => [])));
+  const [snap, ...lists] = await Promise.all([siteSnapshot(), ...CHANNELS.map((c) => channelPosts(c).catch(() => []))]);
   const out = {};
+  if (snap && snap.data) {
+    const at = new Date(snap.at);
+    for (const [day, qs] of Object.entries(snap.data)) {
+      for (const [q, hours] of Object.entries(qs)) (out[day] = out[day] || {})[q] = { hours, at };
+    }
+  }
   for (const p of lists.flat()) {
     const parsed = parseQueues(p.text);
     if (!Object.keys(parsed).length) continue;
